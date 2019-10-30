@@ -1,0 +1,105 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : Oct 31, 2016, 11:05:21 AM
+    Author     : Poxy
+*/
+
+html,body{
+    padding: 0;
+    margin: 0;
+    background: #E6E6E6;
+    font-weight: bolder;
+    font-family: "Book Antiqua";
+    font-size:16px;
+    color:black !important;
+}
+
+.content_area{
+  position: inherit; 
+}
+
+page {
+  background: white;
+  display: block;
+  margin: 0 auto;
+  margin-bottom: 0.5cm;
+  margin-top: 0.5cm;
+  padding-left:  50px;
+  padding-right:  50px;
+    page-break-after: auto;
+
+ 
+}
+page[size="A4"] {  
+  width: 21cm;
+  page-break-after: auto;
+}
+page[size="A4"][layout="portrait"] {
+  width: 29.7cm;
+  height: 21cm;  
+}
+page[size="A3"] {
+  width: 29.7cm;
+  height: 42cm;
+}
+page[size="A3"][layout="portrait"] {
+  width: 42cm;
+  height: 29.7cm;  
+}
+page[size="A5"] {
+  width: 14.8cm;
+  height: 21cm;
+}
+page[size="A5"][layout="portrait"] {
+  width: 21cm;
+  height: 14.8cm;  
+}
+@media print {
+  body, page {
+    margin: 0;
+    box-shadow: 0;
+  }
+}
+.letterhead{
+    background-image: url(../images/letterhead.jpg);
+}
+.mn{
+    border-bottom: 1px solid black;
+    border-right: none;
+    border-left: none;
+    border-top: none;
+    text-align: center;
+    border-radius: 0px !important;
+}
+
+.tg td{font-family:"Book Antiqua";font-size:16px;font-weight:bolder;text-align:center;padding:1px 1px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;}
+.tg th{font-family:"Book Antiqua";font-size:16px;font-weight:bolder;text-align:center;padding:1px 1px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;}
+
+.spacer{
+    width: 100%;
+    height: 40px;
+}
+.btl{
+ margin-left: 1px !important;
+}
+.rem{
+    border-right: none !important;
+    border-top:none !important;
+    border-bottom:none !important;
+}
+textarea{
+    border:none;
+    overflow: hidden;
+    width: 100%;
+    height: auto;
+}
+.labref{
+ border:none;  
+text-align: center; 
+}
+
+

@@ -1,0 +1,250 @@
+<?php
+
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+/**
+ * Description of Report_Engine
+ *
+ * @author Alphy
+ */
+class Report_Engine extends MY_Controller {
+
+    public function __construct() {
+        parent::__construct();
+        $this->load->library('excel');
+    }
+
+    function getReport() {
+        $Ct = $this->input->post('client');
+        $Sd = $this->input->post('startdate');
+        $Ed = $this->input->post('enddate');
+        $D = $this->input->post('department');
+        $A = $this->input->post('activities');
+        $S = $this->input->post('status');
+
+        if ($D == 'All' && $A == 'All' && $S == 'All'):
+            $query = '';
+
+            $this->ExcelGenerator($Sd, $Ed, $Ct, $query);
+
+        elseif ($D !== 'All' && $A !== 'All' && $S !== 'All') :
+
+            $query = "AND a_s.department_id='$D' AND tr.activity='$A' AND re.compliance LIKE '%$S%' GROUP BY re.request_id";
+            $this->ExcelGenerator($Sd, $Ed, $Ct, $query);
+
+
+        elseif ($D !== 'All' && $A !== 'All' && $S == 'All') :
+            $query = "AND a_s.department_id='$D' AND tr.activity='$A' GROUP BY re.request_id";
+            $this->ExcelGenerator($Sd, $Ed, $Ct, $query);
+
+        elseif ($D !== 'All' && $A == 'All' && $S !== 'All') :
+            $query = "AND a_s.department_id='$D' AND re.compliance LIKE '%$S%' GROUP BY re.request_id";
+            $this->ExcelGenerator($Sd, $Ed, $Ct, $query);
+
+        elseif ($D == 'All' && $A !== 'All' && $S !== 'All') :
+            $query = "AND tr.activity='$A'  GROUP BY re.request_id";
+            $this->ExcelGenerator($Sd, $Ed, $Ct, $query);
+
+        elseif ($D == 'All' && $A == 'All' && $S !== 'All') :
+
+            $query = "AND re.compliance LIKE '%$S%' GROUP BY re.request_id";
+            $this->ExcelGenerator($Sd, $Ed, $Ct, $query);
+
+        elseif ($D == 'All' && $A !== 'All' && $S == 'All') :
+
+            $query = "AND tr.activity='$A'  GROUP BY re.request_id";
+            $this->ExcelGenerator($Sd, $Ed, $Ct, $query);
+
+        elseif ($D !== 'All' && $A == 'All' && $S == 'All') :
+            $query = " AND a_s.department_id='$D' GROUP BY re.request_id";
+            $this->ExcelGenerator($Sd, $Ed, $Ct, $query);
+        else:
+            echo 'Default';
+        endif;
+    }
+
+    function ExcelGenerator($Sd, $Ed, $Ct, $query) {
+        unlink("sample_report/ClientSampleReport.xlsx");
+        $objReader = PHPExcel_IOFactory::createReader('Excel2007');
+        $objPHPExcel = $objReader->load("sample_report/Client_Sample_Template.xlsx");
+        $objPHPExcel->getActiveSheet(0);
+        if ($query == '') {
+            $signatories = $this->SQLDefaultGenerator($Sd, $Ed, $Ct, $query);
+        } else {
+            $signatories = $this->SQLOptionGenerator($Sd, $Ed, $Ct, $query);
+        }
+
+        $worksheet = $objPHPExcel->getActiveSheet();
+        $styleArray = array(
+            'borders' => array(
+                'outline' => array(
+                    'style' => PHPExcel_Style_Border::BORDER_THICK,
+                    'color' => array('argb' => 'FFFF0000'),
+                ),
+            ),
+        );
+        $row2 = 15;
+        $i = 1;
+        foreach ($signatories as $signatures):
+            $col = 0;
+            $worksheet
+                    ->setCellValueByColumnAndRow($col++, $row2, $i)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->request_id)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->product_name)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->r_date)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->can)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->analyst_name)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->activity)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->date_added)
+                    ->setCellValueByColumnAndRow($col++, $row2, '=IF(ISBLANK(H15),NETWORKDAYS(D15,$B$4,$C$4:$C$12),"-")')
+                    ->setCellValueByColumnAndRow($col++, $row2, '=IF(ISBLANK(H15),"-",NETWORKDAYS(D15,H15,$C$4:$C$13))');
+
+
+            $row2++;
+            $i++;
+        endforeach;
+
+        // $objPHPExcel->getActiveSheet()->setCellValue('B1', strtoupper(str_replace(array("%20", "/", ",", " ", ".", "(", ")", "?"), "_", $cname)));
+        $objPHPExcel->getActiveSheet()->setTitle(date('d-m-Y'));
+
+        $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+        PHPExcel_Calculation::getInstance($objPHPExcel)->cyclicFormulaCount = 1;
+
+
+        $objWriter->save("sample_report/ClientSampleReport.xlsx");
+
+
+        echo 'Data exported';
+    }
+
+    function SQLDefaultGenerator($Sd, $Ed, $Ct, $query = '') {
+        return $this->db->query("SELECT re.request_id, re.product_name, DATE_FORMAT(re.updated_at, '%d-%b-%Y') 'r_date', tr.activity, a_s.analyst_name,a_s.department_id,
+                CASE WHEN tr.activity = 'Authorization of COA Release' THEN DATE_FORMAT(tr.date_added_1, '%d-%b-%Y') ELSE NULL END AS date_added,
+                CASE WHEN a_s.stat = '1' THEN 'Complete' ELSE 'Pending' END AS status, re.client_id,
+                CASE WHEN re.can = ' ' THEN '-' ELSE can END AS can
+
+                FROM (
+                     SELECT request_id, product_name,updated_at,client_id, can
+                           FROM request r
+                           WHERE client_id='$Ct'
+                           AND updated_at BETWEEN '$Sd' AND '$Ed'
+                           ) re
+                LEFT OUTER JOIN(
+                    SELECT labref, activity, date_added_1
+                         FROM tracking_table t
+                         WHERE id = (SELECT MAX(id) FROM tracking_table t2 WHERE t.labref = t2.labref)) tr
+                         ON re.request_id = tr.labref
+                LEFT OUTER JOIN assigned_samples a_s
+                       ON re.request_id = a_s.labref
+                      ")->result();
+    }
+
+    function SQLOptionGenerator($Sd, $Ed, $Ct, $query) {
+        return $this->db->query("SELECT re.request_id, re.product_name,re.compliance, DATE_FORMAT(re.updated_at, '%d-%b-%Y') 'r_date', tr.activity, a_s.analyst_name,a_s.department_id,
+            CASE WHEN tr.activity = 'Authorization of COA Release' THEN DATE_FORMAT(tr.date_added_1, '%d-%b-%Y') ELSE NULL END AS date_added, 
+            CASE WHEN a_s.stat = '1' THEN 'Complete' ELSE 'Pending' END AS status, re.client_id,
+            CASE WHEN re.can = ' ' THEN '-' ELSE can END AS can FROM ( SELECT request_id, product_name,updated_at,client_id, can,compliance 
+            FROM request r 
+            WHERE client_id='$Ct' 
+               AND updated_at BETWEEN '$Sd' AND '$Ed' ) re 
+                 INNER JOIN( 
+                    SELECT labref, activity, date_added_1 
+                        FROM tracking_table t WHERE id = (SELECT MAX(id) FROM tracking_table t2 WHERE t.labref = t2.labref)) tr 
+                 ON re.request_id = tr.labref 
+                        INNER JOIN assigned_samples a_s 
+               ON re.request_id = a_s.labref
+                          " . $query)->result();
+    }
+    
+    function fanyaReporti() {
+ 
+        
+        
+    }
+    
+    
+       function ExcelGeneratorUnassigned() {
+           
+       $St = $this->input->post('status');
+        $Sd = $this->input->post('startdate');
+        $Ed = $this->input->post('enddate'); 
+        $client =$this->input->post('client'); 
+        
+        if($client==='All'):
+              $signatories= $this->db->query("SELECT request_id, product_name, designation_date_1 "
+                . "FROM request "
+                . "WHERE assign_status='$St' "
+                . "AND designation_date_1 BETWEEN '$Sd' AND '$Ed'")->result();  
+            else:
+                $signatories= $this->db->query("SELECT request_id, product_name, designation_date_1 "
+                . "FROM request "
+                . "WHERE assign_status='$St' "
+                . "AND designation_date_1 BETWEEN '$Sd' AND '$Ed' AND client_id='$client'")->result();
+        endif;
+    
+       
+        
+        
+        
+        
+           
+           
+        unlink("sample_report/StatusReport.xlsx");
+        $objReader = PHPExcel_IOFactory::createReader('Excel2007');
+        $objPHPExcel = $objReader->load("AssignedStatusReport.xlsx");
+        $objPHPExcel->getActiveSheet(0);
+     
+          if($St === '1'){
+             $title ="ASSIGNED SAMPLES REPORT BETWEEN $Sd & $Ed"; 
+          }else if($St==='0' ){
+           $title ="UNASSIGNED SAMPLES REPORT BETWEEN $Sd & $Ed"; 
+ 
+          }else{
+           $title ="UNASSIGNED SAMPLES REPORT BETWEEN $Sd & $Ed";    
+          }
+       
+  
+
+        $worksheet = $objPHPExcel->getActiveSheet();
+        $styleArray = array(
+            'borders' => array(
+                'outline' => array(
+                    'style' => PHPExcel_Style_Border::BORDER_THICK,
+                    'color' => array('argb' => 'FFFF0000'),
+                ),
+            ),
+        );
+        $row2 = 6;
+        $i = 1;
+        foreach ($signatories as $signatures):
+            $col = 0;
+            $worksheet
+                    ->setCellValueByColumnAndRow($col++, $row2, $i)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->request_id)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->product_name)
+                    ->setCellValueByColumnAndRow($col++, $row2, $signatures->designation_date_1);                  
+
+            $row2++;
+            $i++;
+        endforeach;
+      //  $worksheet->setCellValue('F6', $count);
+        $worksheet->setCellValue('A2', $title);
+
+        // $objPHPExcel->getActiveSheet()->setCellValue('B1', strtoupper(str_replace(array("%20", "/", ",", " ", ".", "(", ")", "?"), "_", $cname)));
+        $objPHPExcel->getActiveSheet()->setTitle(date('d-m-Y'));
+
+        $objWriter = PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel2007');
+
+
+        $objWriter->save("sample_report/StatusReport.xlsx");
+
+     echo $count;
+        echo 'Data exported';
+    }
+    
+
+}

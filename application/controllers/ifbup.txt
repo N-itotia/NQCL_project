@@ -1,0 +1,15 @@
+		/*else{
+			//Get upload Data
+			//$data = $this->upload->data();
+			
+			//Check if file already exists
+			/*if(!file_exists($data['file_path'].$file_name)){				
+				$this->upload->do_upload($file_input_name);
+				echo $data['file_path'].$file_name;
+			}
+			else{
+				$key = "error";
+				$msg = "File already exists";
+				$this -> sendNoticeToJson($key, $msg);
+			}
+		}*/
